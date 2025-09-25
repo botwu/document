@@ -1,0 +1,1530 @@
+<!DOCTYPE html><html lang="zh-CN"><head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Qwen3-Coder-30B 模型部署指南</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Tiempos+Headline:wght@400;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'serif': ['Tiempos Headline', 'Songti SC', 'SimSun', 'serif'],
+                        'sans': ['Inter', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', 'Arial', 'sans-serif']
+                    },
+                    colors: {
+                        primary: '#1e293b',
+                        secondary: '#64748b',
+                        accent: '#3b82f6',
+                        'accent-dark': '#1e40af',
+                        'accent-light': '#dbeafe'
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        .toc-sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px;
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-right: 1px solid #e2e8f0;
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 2rem 1.5rem;
+        }
+        
+        .main-content {
+            margin-left: 280px;
+            min-height: 100vh;
+        }
+        
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+            align-items: center;
+            min-height: 60vh;
+        }
+        
+        .citation-link {
+            color: #3b82f6;
+            text-decoration: none;
+            font-weight: 500;
+            border-bottom: 1px dotted #3b82f6;
+        }
+        
+        .citation-link:hover {
+            color: #1e40af;
+            border-bottom-style: solid;
+        }
+        
+        .code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            overflow-x: auto;
+            font-family: 'Fira Code', monospace;
+            border-left: 4px solid #3b82f6;
+            max-width: 100%;
+        }
+        
+        .warning-box {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid #f59e0b;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            max-width: 100%;
+        }
+        
+        .info-box {
+            background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            max-width: 100%;
+        }
+        
+        .toc-link {
+            display: block;
+            padding: 0.5rem 0;
+            color: #64748b;
+            text-decoration: none;
+            font-size: 0.875rem;
+            border-left: 2px solid transparent;
+            padding-left: 1rem;
+            margin-left: -1rem;
+            transition: all 0.2s ease;
+        }
+        
+        .toc-link:hover, .toc-link.active {
+            color: #3b82f6;
+            border-left-color: #3b82f6;
+            background: rgba(59, 130, 246, 0.1);
+        }
+        
+        .toc-link.level-2 {
+            margin-left: 0.5rem;
+            font-size: 0.8rem;
+        }
+        
+        .toc-link.level-3 {
+            margin-left: 1rem;
+            font-size: 0.75rem;
+        }
+
+        /* Responsive fixes */
+        @media (max-width: 768px) {
+            .toc-sidebar {
+                display: none;
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .hero-grid {
+                grid-template-columns: 1fr;
+                min-height: auto;
+            }
+            .hero-grid img {
+                height: auto;
+            }
+            .px-8 {
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+        }
+
+        /* Mermaid diagram styling */
+        .mermaid-container {
+            display: flex;
+            justify-content: center;
+            min-height: 300px;
+            max-height: 800px;
+            background: #ffffff;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 30px;
+            margin: 30px 0;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .mermaid-container .mermaid {
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            cursor: grab;
+            transition: transform 0.3s ease;
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        .mermaid-container .mermaid svg {
+            max-width: 100%;
+            height: 100%;
+            display: block;
+            margin: 0 auto;
+        }
+
+        .mermaid-container .mermaid:active {
+            cursor: grabbing;
+        }
+
+        .mermaid-container.zoomed .mermaid {
+            height: 100%;
+            width: 100%;
+            cursor: grab;
+        }
+
+        .mermaid-controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            z-index: 20;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .mermaid-control-btn {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: #374151;
+            font-size: 14px;
+            min-width: 36px;
+            height: 36px;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .mermaid-control-btn:hover {
+            background: #f8fafc;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            transform: translateY(-1px);
+        }
+
+        .mermaid-control-btn:active {
+            transform: scale(0.95);
+        }
+
+        @media (max-width: 1024px) {
+            .mermaid-control-btn:not(.reset-zoom) {
+                display: none;
+            }
+            .mermaid-controls {
+                top: auto;
+                bottom: 15px;
+                right: 15px;
+            }
+        }
+    </style>
+  </head>
+
+  <body class="bg-gray-50 font-sans">
+    <!-- Table of Contents Sidebar -->
+    <nav class="toc-sidebar">
+      <div class="mb-8">
+        <h2 class="text-lg font-bold text-primary mb-4">目录导航</h2>
+        <div class="space-y-1">
+          <a href="#overview" class="toc-link">概述与准备工作</a>
+          <a href="#model-intro" class="toc-link level-2">模型简介</a>
+          <a href="#requirements" class="toc-link level-2">硬件与软件要求</a>
+          <a href="#hf-token" class="toc-link level-2">Hugging Face 访问令牌</a>
+
+          <a href="#model-prep" class="toc-link">模型准备与存储策略</a>
+          <a href="#download-model" class="toc-link level-2">下载模型</a>
+          <a href="#storage-strategy" class="toc-link level-2">存储方案</a>
+
+          <a href="#docker-deploy" class="toc-link">Docker 部署方案</a>
+          <a href="#vllm-docker" class="toc-link level-2">使用 vLLM 部署</a>
+          <a href="#ollama-docker" class="toc-link level-2">使用 Ollama 部署</a>
+
+          <a href="#k8s-deploy" class="toc-link">Kubernetes 部署方案</a>
+          <a href="#k8s-concepts" class="toc-link level-2">核心概念与组件</a>
+          <a href="#k8s-steps" class="toc-link level-2">部署步骤</a>
+          <a href="#k8s-advanced" class="toc-link level-2">高级选项</a>
+
+          <a href="#validation" class="toc-link">服务验证与调用</a>
+          <a href="#troubleshooting" class="toc-link">常见问题与优化</a>
+        </div>
+      </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <!-- Hero Section -->
+      <section class="bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 text-white py-16">
+        <div class="hero-grid max-w-7xl mx-auto px-8">
+          <div class="space-y-6">
+            <div class="inline-block px-4 py-2 bg-blue-600/20 rounded-full text-blue-200 text-sm font-medium">
+              <i class="fas fa-rocket mr-2"></i>生产级部署指南
+            </div>
+            <h1 class="text-5xl font-serif font-bold leading-tight">
+              <span class="italic text-blue-300">Qwen3-Coder-30B</span>
+              <br/>
+              模型部署实践
+            </h1>
+            <p class="text-xl text-blue-100 leading-relaxed max-w-2xl">
+              从 Docker 单机部署到 Kubernetes 集群编排，为技术人员提供详尽的模型推理服务搭建指南
+            </p>
+            <div class="flex flex-wrap gap-4">
+              <div class="flex items-center gap-2 text-blue-200">
+                <i class="fab fa-docker"></i>
+                <span>Docker 部署</span>
+              </div>
+              <div class="flex items-center gap-2 text-blue-200">
+                <i class="fas fa-dharmachakra"></i>
+                <span>Kubernetes 编排</span>
+              </div>
+              <div class="flex items-center gap-2 text-blue-200">
+                <i class="fas fa-microchip"></i>
+                <span>GPU 优化</span>
+              </div>
+            </div>
+          </div>
+          <div class="relative">
+            <img src="https://kimi-web-img.moonshot.cn/img/p1-jj.byteimg.com/27764750ea7777539fd035affd0162dfc293fcad.png" alt="神经网络可视化与代码编辑器界面" class="w-full h-80 object-cover rounded-2xl shadow-2xl" size="medium" aspect="wide" query="神经网络代码生成可视化" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+            <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent rounded-2xl"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Overview Section -->
+      <section id="overview" class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-8">
+          <h2 class="text-4xl font-serif font-bold text-primary mb-8">概述与准备工作</h2>
+
+          <div class="grid md:grid-cols-2 gap-12 mb-12">
+            <div>
+              <h3 id="model-intro" class="text-2xl font-semibold text-primary mb-4">模型简介：Qwen3-Coder-30B</h3>
+              <p class="text-gray-700 leading-relaxed mb-4">
+                <code>Qwen3-Coder-30B</code> 是由阿里巴巴通义千问团队开发的一款专为代码生成与理解任务优化的开源大型语言模型。该模型基于先进的混合专家（Mixture-of-Experts, MoE）架构，总参数量达到 300 亿（30B），但在推理时仅激活约 33 亿（3.3B）参数 <a href="https://northflank.com/stacks/deploy-qwen3-30b-coder-32k" class="citation-link">[242]</a>。
+              </p>
+              <p class="text-gray-700 leading-relaxed">
+                根据官方资料，该模型在多项代码基准测试中表现优异，性能可与 Claude Sonnet 4 等顶级模型相媲美，特别擅长于智能体编码、浏览器自动化任务以及基础的代码生成与补全 <a href="https://northflank.com/stacks/deploy-qwen3-30b-coder-32k" class="citation-link">[242]</a>。
+              </p>
+            </div>
+            <div class="bg-gray-50 p-6 rounded-xl">
+              <img src="https://kimi-web-img.moonshot.cn/img/cimg.fx361.com/18b8c769b49c12fd6c4d409c4e42054c1affffdd.webp" alt="神经网络模型架构示意图" class="w-full h-48 object-cover rounded-lg mb-4" size="medium" aspect="wide" style="linedrawing" query="神经网络模型架构" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span class="font-semibold text-gray-600">上下文窗口</span>
+                  <p class="text-gray-800">32K（可扩展至 1M）</p>
+                </div>
+                <div>
+                  <span class="font-semibold text-gray-600">激活参数</span>
+                  <p class="text-gray-800">3.3B</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="requirements" class="mb-12">
+            <h3 class="text-2xl font-semibold text-primary mb-6">硬件与软件要求</h3>
+
+            <div class="grid md:grid-cols-2 gap-8 mb-8">
+              <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4 flex items-center">
+                  <i class="fas fa-server mr-2 text-accent"></i>硬件要求
+                </h4>
+                <div class="space-y-4">
+                  <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span class="text-gray-600">GPU 最低配置</span>
+                    <span class="font-semibold">1x NVIDIA H100 (80GB)</span>
+                  </div>
+                  <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span class="text-gray-600">推荐配置</span>
+                    <span class="font-semibold">2x A100 (80GB) 或 4x A100 (40GB)</span>
+                  </div>
+                  <div class="flex justify-between items-center py-2 border-b border-gray-100">
+                    <span class="text-gray-600">CPU 核心</span>
+                    <span class="font-semibold">16+ 核心</span>
+                  </div>
+                  <div class="flex justify-between items-center py-2">
+                    <span class="text-gray-600">内存</span>
+                    <span class="font-semibold">128GB+</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4 flex items-center">
+                  <i class="fas fa-cogs mr-2 text-accent"></i>软件依赖
+                </h4>
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center py-2">
+                    <span class="text-gray-600">Docker Engine</span>
+                    <span class="font-semibold">20.10+</span>
+                  </div>
+                  <div class="flex justify-between items-center py-2">
+                    <span class="text-gray-600">NVIDIA Toolkit</span>
+                    <span class="font-semibold">最新版</span>
+                  </div>
+                  <div class="flex justify-between items-center py-2">
+                    <span class="text-gray-600">Kubernetes</span>
+                    <span class="font-semibold">1.23+ <a href="https://huggingface.co/docs/hugs/how-to/kubernetes" class="citation-link">[248]</a></span>
+                  </div>
+                  <div class="flex justify-between items-center py-2">
+                    <span class="text-gray-600">kubectl</span>
+                    <span class="font-semibold">兼容版本</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="hf-token" class="info-box">
+            <h4 class="text-lg font-semibold text-primary mb-3">
+              <i class="fas fa-key mr-2"></i>获取 Hugging Face 访问令牌
+            </h4>
+            <p class="text-gray-700 mb-4">
+              许多预训练模型，包括 <code>Qwen3-Coder-30B</code>，在 Hugging Face Hub 上是受限制的，需要用户登录并同意相关许可协议后才能访问。
+            </p>
+            <ol class="list-decimal list-inside space-y-2 text-gray-700">
+              <li>访问 <a href="https://huggingface.co" class="citation-link">Hugging Face 官网</a> 并登录您的账户</li>
+              <li>点击右上角头像，进入 <code>Settings</code> 页面</li>
+              <li>在左侧菜单中选择 <code>Access Tokens</code></li>
+              <li>点击 <code>New token</code> 创建新令牌，选择 <code>Read</code> 权限</li>
+              <li><strong>重要：</strong>令牌生成后只会显示一次，请立即复制并保存在安全位置</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <!-- Model Preparation Section -->
+      <section id="model-prep" class="py-16 bg-gray-50">
+        <div class="max-w-5xl mx-auto px-8">
+          <h2 class="text-4xl font-serif font-bold text-primary mb-8">模型准备与存储策略</h2>
+
+          <div id="download-model" class="mb-12">
+            <h3 class="text-2xl font-semibold text-primary mb-6">从 Hugging Face 下载模型</h3>
+
+            <div class="bg-white rounded-xl p-6 shadow-sm mb-6">
+              <h4 class="text-lg font-semibold text-primary mb-4">使用 huggingface-cli 下载</h4>
+              <p class="text-gray-700 mb-4">首先安装 Hugging Face 命令行工具：</p>
+              <div class="code-block mb-4">
+                pip install huggingface_hub
+              </div>
+              <p class="text-gray-700 mb-4">然后使用以下命令下载模型：</p>
+              <div class="code-block">
+                # 下载完整原始模型
+                <br/>
+                huggingface-cli download Qwen/Qwen3-Coder-30B --token &lt;your-hf-token&gt; --local-dir ./Qwen3-Coder-30B
+                <br/>
+                <br/>
+                # 下载特定量化版本
+                <br/>
+                huggingface-cli download unsloth/Qwen3-Coder-30B-A3B-Instruct-GGUF --token &lt;your-hf-token&gt; --local-dir ./Qwen3-Coder-30B-GGUF --include &#34;*UD-Q4_K_XL*&#34;
+              </div>
+            </div>
+
+            <div class="warning-box">
+              <h4 class="text-lg font-semibold text-amber-800 mb-2">
+                <i class="fas fa-exclamation-triangle mr-2"></i>国内用户加速下载
+              </h4>
+              <p class="text-amber-700 mb-2">对于国内用户，建议设置镜像站加速下载：</p>
+              <div class="code-block">
+                export HF_ENDPOINT=https://hf-mirror.com
+              </div>
+            </div>
+          </div>
+
+          <div id="storage-strategy" class="mb-12">
+            <h3 class="text-2xl font-semibold text-primary mb-6">模型存储方案</h3>
+
+            <div class="grid md:grid-cols-2 gap-8">
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">
+                  <i class="fas fa-folder mr-2 text-accent"></i>本地文件系统挂载
+                </h4>
+                <p class="text-gray-700 mb-4">适用于单机 Docker 部署，简单直接：</p>
+                <div class="code-block text-sm mb-4">
+                  docker run -v /host/model/path:/app/model ...
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center text-green-600">
+                    <i class="fas fa-check mr-2"></i>
+                    <span class="text-sm">简单快捷，易于调试</span>
+                  </div>
+                  <div class="flex items-center text-red-600">
+                    <i class="fas fa-times mr-2"></i>
+                    <span class="text-sm">可移植性差，不适合集群</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">
+                  <i class="fas fa-database mr-2 text-accent"></i>使用 PVC 存储
+                </h4>
+                <p class="text-gray-700 mb-4">Kubernetes 推荐方案，持久化存储：</p>
+                <div class="code-block text-sm mb-4">
+                  volumes:
+                  <br/>
+                    - name: model-storage
+                  <br/>
+                      persistentVolumeClaim:
+                  <br/>
+                        claimName: qwen-model-pvc
+                </div>
+                <div class="space-y-2">
+                  <div class="flex items-center text-green-600">
+                    <i class="fas fa-check mr-2"></i>
+                    <span class="text-sm">解耦存储，支持共享</span>
+                  </div>
+                  <div class="flex items-center text-green-600">
+                    <i class="fas fa-check mr-2"></i>
+                    <span class="text-sm">数据持久化，高可用</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Docker Deployment Section -->
+      <section id="docker-deploy" class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-8">
+          <h2 class="text-4xl font-serif font-bold text-primary mb-8">Docker 部署方案</h2>
+
+          <div id="vllm-docker" class="mb-12">
+            <h3 class="text-2xl font-semibold text-primary mb-6">方案一：使用 vLLM 部署</h3>
+
+            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8 mb-8">
+              <img src="https://kimi-web-img.moonshot.cn/img/picx.zhimg.com/fd6f1f828fb14475007ccba818d65aa8aa3e4164.jpg" alt="vLLM深度学习推理引擎架构图" class="w-full h-64 object-cover rounded-lg mb-6" size="medium" aspect="wide" query="vLLM推理引擎架构" referrerpolicy="no-referrer" data-modified="1" data-score="0.00"/>
+              <p class="text-gray-700 leading-relaxed">
+                vLLM 是一个快速且易于使用的大型语言模型推理和服务库，以其高吞吐量和高效的内存管理（通过 PagedAttention 技术）而闻名 <a href="https://blog.csdn.net/gitblog_00239/article/details/151743911" class="citation-link">[192]</a>。
+              </p>
+            </div>
+
+            <div class="space-y-6">
+              <div>
+                <h4 class="text-lg font-semibold text-primary mb-4">拉取 vLLM 官方 Docker 镜像</h4>
+                <div class="code-block">
+                  docker pull vllm/vllm-openai:latest
+                </div>
+              </div>
+
+              <div>
+                <h4 class="text-lg font-semibold text-primary mb-4">编写 Docker 运行命令</h4>
+                <div class="code-block">
+                  docker run --gpus all \
+                  <br/>
+                    -v /path/to/your/Qwen3-Coder-30B:/app/model \
+                  <br/>
+                    -p 8000:8000 \
+                  <br/>
+                    -e &#34;HUGGING_FACE_HUB_TOKEN=&lt;your-hf-token&gt;&#34; \
+                  <br/>
+                    vllm/vllm-openai:latest \
+                  <br/>
+                    --model /app/model \
+                  <br/>
+                    --served-model-name qwen3-coder-30b \
+                  <br/>
+                    --max-model-len 8192 \
+                  <br/>
+                    --gpu-memory-utilization 0.9
+                </div>
+              </div>
+
+              <div class="info-box">
+                <h4 class="text-lg font-semibold text-primary mb-3">关键参数说明</h4>
+                <ul class="space-y-2 text-gray-700">
+                  <li><code>--gpus all</code>: 允许容器访问所有 GPU</li>
+                  <li><code>--gpu-memory-utilization 0.9</code>: 设置 GPU 内存利用率上限，防止 OOM 错误</li>
+                  <li><code>--max-model-len 8192</code>: 设置最大序列长度，根据硬件调整</li>
+                </ul>
+              </div>
+
+              <div>
+                <h4 class="text-lg font-semibold text-primary mb-4">启动容器并验证服务</h4>
+                <p class="text-gray-700 mb-4">执行上述命令后，可以通过以下方式验证：</p>
+                <div class="code-block">
+                  # 健康检查
+                  <br/>
+                  curl http://localhost:8000/health
+                  <br/>
+                  <br/>
+                  # 模型列表
+                  <br/>
+                  curl http://localhost:8000/v1/models
+                  <br/>
+                  <br/>
+                  # 推理测试
+                  <br/>
+                  curl -X POST http://localhost:8000/v1/chat/completions \
+                  <br/>
+                    -H &#34;Content-Type: application/json&#34; \
+                  <br/>
+                    -d &#39;{
+                  <br/>
+                      &#34;model&#34;: &#34;qwen3-coder-30b&#34;,
+                  <br/>
+                      &#34;messages&#34;: [
+                  <br/>
+                        {&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: &#34;Write a Python function to calculate the factorial of a number.&#34;}
+                  <br/>
+                      ]
+                  <br/>
+                    }&#39;
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="ollama-docker">
+            <h3 class="text-2xl font-semibold text-primary mb-6">方案二：使用 Ollama 部署</h3>
+
+            <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+              <p class="text-gray-700 mb-4">
+                Ollama 是一个轻量级、可扩展的框架，用于在本地构建和运行大型语言模型，以其简单的设置和用户友好的界面而受到欢迎 <a href="https://hostkey.com/documentation/marketplace/llms/qwen3_coder/" class="citation-link">[193]</a>。
+              </p>
+
+              <div class="space-y-4">
+                <div>
+                  <h4 class="text-lg font-semibold text-primary mb-2">拉取并运行 Ollama 容器</h4>
+                  <div class="code-block">
+                    docker run -d --gpus all -v ollama-data:/root/.ollama -p 11434:11434 --name ollama ollama/ollama
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-lg font-semibold text-primary mb-2">进入容器并拉取模型</h4>
+                  <div class="code-block">
+                    # 进入容器
+                    <br/>
+                    docker exec -it ollama /bin/bash
+                    <br/>
+                    <br/>
+                    # 拉取模型
+                    <br/>
+                    ollama run qwen3-coder:30b
+                  </div>
+                </div>
+
+                <div>
+                  <h4 class="text-lg font-semibold text-primary mb-2">API 调用示例</h4>
+                  <div class="code-block">
+                    curl -X POST http://localhost:11434/api/generate \
+                    <br/>
+                      -H &#34;Content-Type: application/json&#34; \
+                    <br/>
+                      -d &#39;{
+                    <br/>
+                        &#34;model&#34;: &#34;qwen3-coder:30b&#34;,
+                    <br/>
+                        &#34;prompt&#34;: &#34;Write a Python function to calculate the factorial of a number.&#34;,
+                    <br/>
+                        &#34;stream&#34;: false
+                    <br/>
+                      }&#39;
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Kubernetes Deployment Section -->
+      <section id="k8s-deploy" class="py-16 bg-gray-50">
+        <div class="max-w-5xl mx-auto px-8">
+          <h2 class="text-4xl font-serif font-bold text-primary mb-8">Kubernetes 部署方案</h2>
+
+          <div id="k8s-concepts" class="mb-12">
+            <h3 class="text-2xl font-semibold text-primary mb-6">核心概念与组件</h3>
+
+            <div class="mermaid-container">
+              <div class="mermaid-controls">
+                <button class="mermaid-control-btn zoom-in" title="放大">
+                  <i class="fas fa-search-plus"></i>
+                </button>
+                <button class="mermaid-control-btn zoom-out" title="缩小">
+                  <i class="fas fa-search-minus"></i>
+                </button>
+                <button class="mermaid-control-btn reset-zoom" title="重置">
+                  <i class="fas fa-expand-arrows-alt"></i>
+                </button>
+                <button class="mermaid-control-btn fullscreen" title="全屏查看">
+                  <i class="fas fa-expand"></i>
+                </button>
+              </div>
+              <div class="mermaid">
+                graph TD
+                A[&#34;客户端请求&#34;] --&gt; B[&#34;Ingress&#34;]
+                B --&gt; C[&#34;Service&#34;]
+                C --&gt; D[&#34;Deployment&#34;]
+                D --&gt; E[&#34;Pod 1&#34;]
+                D --&gt; F[&#34;Pod 2&#34;]
+                D --&gt; G[&#34;Pod 3&#34;]
+                E --&gt; H[&#34;PVC&#34;]
+                F --&gt; H
+                G --&gt; H
+                H --&gt; I[&#34;持久化存储&#34;]
+
+                style A fill:#e1f5fe
+                style B fill:#f3e5f5
+                style C fill:#e8f5e8
+                style D fill:#fff3e0
+                style E fill:#fce4ec
+                style F fill:#fce4ec
+                style G fill:#fce4ec
+                style H fill:#e8eaf6
+                style I fill:#f1f8e9
+              </div>
+            </div>
+
+            <div class="grid md:grid-cols-2 gap-8">
+              <div class="space-y-6">
+                <div class="bg-white rounded-xl p-6 shadow-sm">
+                  <h4 class="text-lg font-semibold text-primary mb-3">
+                    <i class="fas fa-cube mr-2 text-accent"></i>Deployment
+                  </h4>
+                  <p class="text-gray-700 text-sm leading-relaxed">
+                    提供声明式方式定义和管理 Pod 副本集，确保指定数量的 Pod 实例始终运行，支持滚动更新实现零停机部署 <a href="https://www.newline.co/@zaoyang/zero-downtime-llm-deployment-with-kubernetes--e8e30c6b" class="citation-link">[200]</a>。
+                  </p>
+                </div>
+
+                <div class="bg-white rounded-xl p-6 shadow-sm">
+                  <h4 class="text-lg font-semibold text-primary mb-3">
+                    <i class="fas fa-network-wired mr-2 text-accent"></i>Service
+                  </h4>
+                  <p class="text-gray-700 text-sm leading-relaxed">
+                    为 Pod 提供稳定的虚拟 IP 和 DNS 名称，将一组功能相同的 Pod 暴露为统一网络服务，实现负载均衡 <a href="https://dzone.com/articles/llm-deployment-docker-kubernetes" class="citation-link">[201]</a>。
+                  </p>
+                </div>
+              </div>
+
+              <div class="space-y-6">
+                <div class="bg-white rounded-xl p-6 shadow-sm">
+                  <h4 class="text-lg font-semibold text-primary mb-3">
+                    <i class="fas fa-database mr-2 text-accent"></i>PVC
+                  </h4>
+                  <p class="text-gray-700 text-sm leading-relaxed">
+                    用户对持久化存储资源的请求，屏蔽底层存储细节，为 Pod 提供统一的持久化存储访问方式 <a href="https://blog.csdn.net/gitblog_00239/article/details/151743911" class="citation-link">[192]</a>。
+                  </p>
+                </div>
+
+                <div class="bg-white rounded-xl p-6 shadow-sm">
+                  <h4 class="text-lg font-semibold text-primary mb-3">
+                    <i class="fas fa-key mr-2 text-accent"></i>Secret
+                  </h4>
+                  <p class="text-gray-700 text-sm leading-relaxed">
+                    专门存储和管理敏感数据，如 Hugging Face 访问令牌，以 Base64 编码存储，提高安全性 <a href="https://www.omi.me/blogs/ai-integrations/how-to-integrate-hugging-face-with-kubernetes?srsltid=AfmBOorcSizXzoS1Atx6ji8VKuSZimQx6QtSDuvz2eJWlPkbkYqT_NZJ" class="citation-link">[195]</a>。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="k8s-steps" class="mb-12">
+            <h3 class="text-2xl font-semibold text-primary mb-6">部署步骤：以 vLLM 为例</h3>
+
+            <div class="space-y-8">
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">1. 创建 PVC 以存储模型</h4>
+                <div class="code-block mb-4">
+                  apiVersion: v1
+                  <br/>
+                  kind: PersistentVolumeClaim
+                  <br/>
+                  metadata:
+                  <br/>
+                    name: qwen-model-pvc
+                  <br/>
+                    namespace: llm-services
+                  <br/>
+                  spec:
+                  <br/>
+                    accessModes:
+                  <br/>
+                      - ReadOnlyMany
+                  <br/>
+                    resources:
+                  <br/>
+                      requests:
+                  <br/>
+                        storage: 300Gi
+                  <br/>
+                    storageClassName: fast-ssd
+                </div>
+                <div class="code-block">
+                  kubectl apply -f pvc.yaml
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">2. 创建 Secret 以存储 Hugging Face Token</h4>
+                <div class="code-block mb-4">
+                  kubectl create secret generic hf-secret \
+                  <br/>
+                    --from-literal=api-token=&lt;your-hf-token&gt; \
+                  <br/>
+                    -n llm-services
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">3. 编写 Deployment 配置文件</h4>
+                <div class="code-block">
+                  apiVersion: apps/v1
+                  <br/>
+                  kind: Deployment
+                  <br/>
+                  metadata:
+                  <br/>
+                    name: qwen3-coder-30b
+                  <br/>
+                    namespace: llm-services
+                  <br/>
+                  spec:
+                  <br/>
+                    replicas: 2
+                  <br/>
+                    selector:
+                  <br/>
+                      matchLabels:
+                  <br/>
+                        app: qwen3-coder-30b
+                  <br/>
+                    template:
+                  <br/>
+                      metadata:
+                  <br/>
+                        labels:
+                  <br/>
+                          app: qwen3-coder-30b
+                  <br/>
+                      spec:
+                  <br/>
+                        containers:
+                  <br/>
+                        - name: vllm-server
+                  <br/>
+                          image: vllm/vllm-openai:latest
+                  <br/>
+                          command: [&#34;/bin/sh&#34;, &#34;-c&#34;]
+                  <br/>
+                          args:
+                  <br/>
+                            - |
+                  <br/>
+                              vllm serve Qwen/Qwen3-30B-A3B-Instruct \
+                  <br/>
+                              --host 0.0.0.0 \
+                  <br/>
+                              --port 8000 \
+                  <br/>
+                              --max-model-len 32768 \
+                  <br/>
+                              --gpu-memory-utilization 0.95
+                  <br/>
+                          env:
+                  <br/>
+                          - name: HUGGING_FACE_HUB_TOKEN
+                  <br/>
+                            valueFrom:
+                  <br/>
+                              secretKeyRef:
+                  <br/>
+                                name: hf-secret
+                  <br/>
+                                key: api-token
+                  <br/>
+                          resources:
+                  <br/>
+                            requests:
+                  <br/>
+                              nvidia.com/gpu: 1
+                  <br/>
+                              memory: &#34;32Gi&#34;
+                  <br/>
+                            limits:
+                  <br/>
+                              nvidia.com/gpu: 1
+                  <br/>
+                              memory: &#34;64Gi&#34;
+                  <br/>
+                          volumeMounts:
+                  <br/>
+                          - name: model-storage
+                  <br/>
+                            mountPath: /root/.cache/huggingface
+                  <br/>
+                        volumes:
+                  <br/>
+                        - name: model-storage
+                  <br/>
+                          persistentVolumeClaim:
+                  <br/>
+                            claimName: qwen-model-pvc
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">4. 编写 Service 配置文件</h4>
+                <div class="code-block">
+                  apiVersion: v1
+                  <br/>
+                  kind: Service
+                  <br/>
+                  metadata:
+                  <br/>
+                    name: qwen3-coder-30b-service
+                  <br/>
+                    namespace: llm-services
+                  <br/>
+                  spec:
+                  <br/>
+                    selector:
+                  <br/>
+                      app: qwen3-coder-30b
+                  <br/>
+                    ports:
+                  <br/>
+                    - port: 80
+                  <br/>
+                      targetPort: 8000
+                  <br/>
+                    type: ClusterIP
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">5. 应用配置并部署到集群</h4>
+                <div class="code-block">
+                  kubectl apply -f pvc.yaml -f secret.yaml -f deployment.yaml -f service.yaml
+                  <br/>
+                  <br/>
+                  # 检查部署状态
+                  <br/>
+                  kubectl get pods -n llm-services -l app=qwen3-coder-30b
+                  <br/>
+                  kubectl get svc -n llm-services
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div id="k8s-advanced" class="mb-12">
+            <h3 class="text-2xl font-semibold text-primary mb-6">高级部署选项</h3>
+
+            <div class="grid md:grid-cols-2 gap-8">
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">
+                  <i class="fas fa-ship mr-2 text-accent"></i>使用 Helm Chart 简化部署
+                </h4>
+                <p class="text-gray-700 text-sm mb-4">
+                  Helm 是 Kubernetes 的包管理器，通过 Chart 格式简化应用部署和管理 <a href="https://vllm.hyper.ai/docs/deployment/integrations/production-stack/" class="citation-link">[215]</a>。
+                </p>
+                <div class="code-block text-sm">
+                  helm repo add vllm https://vllm-project.github.io/production-stack
+                  <br/>
+                  helm repo update
+                  <br/>
+                  <br/>
+                  helm install my-qwen3-deployment vllm/vllm-stack -f my-values.yaml
+                </div>
+              </div>
+
+              <div class="bg-white rounded-xl p-6 shadow-sm">
+                <h4 class="text-lg font-semibold text-primary mb-4">
+                  <i class="fas fa-microchip mr-2 text-accent"></i>配置 GPU 资源限制
+                </h4>
+                <p class="text-gray-700 text-sm mb-4">
+                  正确配置 GPU 资源请求和限制是确保服务稳定运行的关键。
+                </p>
+                <div class="code-block text-sm">
+                  resources:
+                  <br/>
+                    requests:
+                  <br/>
+                      nvidia.com/gpu: 1
+                  <br/>
+                    limits:
+                  <br/>
+                      nvidia.com/gpu: 1
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Validation Section -->
+      <section id="validation" class="py-16 bg-white">
+        <div class="max-w-5xl mx-auto px-8">
+          <h2 class="text-4xl font-serif font-bold text-primary mb-8">模型服务验证与调用</h2>
+
+          <div class="grid md:grid-cols-2 gap-8 mb-12">
+            <div class="bg-gray-50 rounded-xl p-6">
+              <h3 class="text-xl font-semibold text-primary mb-4">
+                <i class="fas fa-check-circle mr-2 text-green-600"></i>验证服务状态
+              </h3>
+              <div class="space-y-4">
+                <div>
+                  <h4 class="font-semibold text-gray-700 mb-2">检查 Pod 状态</h4>
+                  <div class="code-block text-sm">
+                    kubectl get pods -n llm-services -l app=qwen3-coder-30b
+                  </div>
+                </div>
+                <div>
+                  <h4 class="font-semibold text-gray-700 mb-2">查看容器日志</h4>
+                  <div class="code-block text-sm">
+                    kubectl logs &lt;pod-name&gt; -n llm-services
+                    <br/>
+                    kubectl logs -f &lt;pod-name&gt; -n llm-services
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-gray-50 rounded-xl p-6">
+              <h3 class="text-xl font-semibold text-primary mb-4">
+                <i class="fas fa-code mr-2 text-blue-600"></i>调用模型 API
+              </h3>
+              <div class="space-y-4">
+                <div>
+                  <h4 class="font-semibold text-gray-700 mb-2">使用 curl 发送请求</h4>
+                  <div class="code-block text-sm">
+                    curl -X POST http://localhost:8000/v1/chat/completions \
+                    <br/>
+                      -H &#34;Content-Type: application/json&#34; \
+                    <br/>
+                      -d &#39;{
+                    <br/>
+                        &#34;model&#34;: &#34;qwen3-coder-30b&#34;,
+                    <br/>
+                        &#34;messages&#34;: [{&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: &#34;Hello!&#34;}]
+                    <br/>
+                      }&#39;
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-8">
+            <h3 class="text-xl font-semibold text-primary mb-4">
+              <i class="fab fa-python mr-2 text-blue-600"></i>Python openai 客户端调用示例
+            </h3>
+            <div class="code-block">
+              from openai import OpenAI
+              <br/>
+              <br/>
+              client = OpenAI(
+              <br/>
+                base_url=&#34;http://localhost:8000/v1&#34;,
+              <br/>
+                api_key=&#34;dummy&#34;
+              <br/>
+              )
+              <br/>
+              <br/>
+              response = client.chat.completions.create(
+              <br/>
+                model=&#34;qwen3-coder-30b&#34;,
+              <br/>
+                messages=[
+              <br/>
+                  {&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: &#34;Write a Python function to calculate Fibonacci numbers.&#34;}
+              <br/>
+                ]
+              <br/>
+              )
+              <br/>
+              <br/>
+              print(response.choices[0].message.content)
+            </div>
+          </div>
+
+          <div class="mt-8 info-box">
+            <h4 class="text-lg font-semibold text-primary mb-3">
+              <i class="fas fa-brain mr-2"></i>处理 Qwen3 模型的&#34;思考&#34;功能
+            </h4>
+            <p class="text-gray-700 mb-4">
+              Qwen3 模型在生成最终答案前会先进行内部推理，可以通过设置
+              <code>reasoning_content</code> 参数来获取思考过程：
+            </p>
+            <div class="code-block">
+              {
+              <br/>
+                &#34;model&#34;: &#34;qwen3-coder-30b&#34;,
+              <br/>
+                &#34;messages&#34;: [{&#34;role&#34;: &#34;user&#34;, &#34;content&#34;: &#34;How to reverse a linked list?&#34;}],
+              <br/>
+                &#34;reasoning_content&#34;: true
+              <br/>
+              }
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Troubleshooting Section -->
+      <section id="troubleshooting" class="py-16 bg-gray-50">
+        <div class="max-w-5xl mx-auto px-8">
+          <h2 class="text-4xl font-serif font-bold text-primary mb-8">常见问题与优化建议</h2>
+
+          <div class="grid md:grid-cols-2 gap-8 mb-12">
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+              <h3 class="text-xl font-semibold text-primary mb-6">
+                <i class="fas fa-exclamation-triangle mr-2 text-amber-600"></i>常见问题排查
+              </h3>
+              <div class="space-y-6">
+                <div class="border-l-4 border-amber-400 pl-4">
+                  <h4 class="font-semibold text-gray-800 mb-2">镜像拉取失败</h4>
+                  <p class="text-gray-600 text-sm mb-2">网络问题、镜像名称错误或私有仓库认证失败</p>
+                  <p class="text-gray-700 text-sm">检查网络连接，确认镜像名称和标签，验证仓库访问权限</p>
+                </div>
+
+                <div class="border-l-4 border-amber-400 pl-4">
+                  <h4 class="font-semibold text-gray-800 mb-2">模型加载失败</h4>
+                  <p class="text-gray-600 text-sm mb-2">路径错误、文件不完整或 GPU 内存不足</p>
+                  <p class="text-gray-700 text-sm">检查挂载路径，确认模型完整性，查看 OOM 错误日志</p>
+                </div>
+
+                <div class="border-l-4 border-amber-400 pl-4">
+                  <h4 class="font-semibold text-gray-800 mb-2">GPU 资源未分配</h4>
+                  <p class="text-gray-600 text-sm mb-2">NVIDIA Toolkit 未安装或 Device Plugin 未运行</p>
+                  <p class="text-gray-700 text-sm">运行
+                    <code>nvidia-smi</code> 检查，验证容器内 GPU 可见性
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-xl p-6 shadow-sm">
+              <h3 class="text-xl font-semibold text-primary mb-6">
+                <i class="fas fa-rocket mr-2 text-green-600"></i>性能优化建议
+              </h3>
+              <div class="space-y-6">
+                <div class="border-l-4 border-green-400 pl-4">
+                  <h4 class="font-semibold text-gray-800 mb-2">模型量化</h4>
+                  <p class="text-gray-600 text-sm mb-2">使用 GPTQ、AWQ 等量化技术</p>
+                  <p class="text-gray-700 text-sm">将 FP16/BF16 转换为 INT8/INT4，减少显存占用</p>
+                </div>
+
+                <div class="border-l-4 border-green-400 pl-4">
+                  <h4 class="font-semibold text-gray-800 mb-2">调整 GPU 内存利用率</h4>
+                  <p class="text-gray-600 text-sm mb-2">设置
+                    <code>--gpu-memory-utilization</code> 参数
+                  </p>
+                  <p class="text-gray-700 text-sm">较高值（0.9-0.95）提高吞吐量，需避免 OOM</p>
+                </div>
+
+                <div class="border-l-4 border-green-400 pl-4">
+                  <h4 class="font-semibold text-gray-800 mb-2">启用前缀缓存</h4>
+                  <p class="text-gray-600 text-sm mb-2">使用
+                    <code>--enable-prefix-caching</code>
+                  </p>
+                  <p class="text-gray-700 text-sm">缓存 KV 缓存，避免重复计算，提升性能</p>
+                </div>
+
+                <div class="border-l-4 border-green-400 pl-4">
+                  <h4 class="font-semibold text-gray-800 mb-2">调整并行策略</h4>
+                  <p class="text-gray-600 text-sm mb-2">张量并行和流水线并行</p>
+                  <p class="text-gray-700 text-sm">多卡部署大模型，提高资源利用率</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-gradient-to-r from-slate-900 to-blue-900 text-white rounded-xl p-8">
+            <h3 class="text-2xl font-serif font-bold mb-4">最佳实践总结</h3>
+            <div class="grid md:grid-cols-3 gap-6">
+              <div class="text-center">
+                <i class="fas fa-docker text-4xl text-blue-400 mb-4"></i>
+                <h4 class="font-semibold mb-2">开发测试</h4>
+                <p class="text-blue-100 text-sm">使用 Docker 快速部署，适合本地开发和功能验证</p>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-dharmachakra text-4xl text-green-400 mb-4"></i>
+                <h4 class="font-semibold mb-2">生产环境</h4>
+                <p class="text-green-100 text-sm">Kubernetes 集群部署，实现高可用和弹性伸缩</p>
+              </div>
+              <div class="text-center">
+                <i class="fas fa-chart-line text-4xl text-purple-400 mb-4"></i>
+                <h4 class="font-semibold mb-2">性能优化</h4>
+                <p class="text-purple-100 text-sm">模型量化、GPU 调优和并行策略配置</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#3b82f6',
+                primaryTextColor: '#1e293b',
+                primaryBorderColor: '#3b82f6',
+                lineColor: '#64748b',
+                secondaryColor: '#f1f5f9',
+                tertiaryColor: '#ffffff',
+                background: '#ffffff',
+                mainBkg: '#ffffff',
+                secondBkg: '#f8fafc',
+                tertiaryBkg: '#f1f5f9',
+                fontFamily: 'Inter, PingFang SC, Microsoft YaHei, sans-serif',
+                fontSize: '14px'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+
+        // Initialize Mermaid Controls for zoom and pan
+        function initializeMermaidControls() {
+            const containers = document.querySelectorAll('.mermaid-container');
+
+            containers.forEach(container => {
+            const mermaidElement = container.querySelector('.mermaid');
+            let scale = 1;
+            let isDragging = false;
+            let startX, startY, translateX = 0, translateY = 0;
+
+            // 触摸相关状态
+            let isTouch = false;
+            let touchStartTime = 0;
+            let initialDistance = 0;
+            let initialScale = 1;
+            let isPinching = false;
+
+            // Zoom controls
+            const zoomInBtn = container.querySelector('.zoom-in');
+            const zoomOutBtn = container.querySelector('.zoom-out');
+            const resetBtn = container.querySelector('.reset-zoom');
+            const fullscreenBtn = container.querySelector('.fullscreen');
+
+            function updateTransform() {
+                mermaidElement.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+
+                if (scale > 1) {
+                container.classList.add('zoomed');
+                } else {
+                container.classList.remove('zoomed');
+                }
+
+                mermaidElement.style.cursor = isDragging ? 'grabbing' : 'grab';
+            }
+
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', () => {
+                scale = Math.min(scale * 1.25, 4);
+                updateTransform();
+                });
+            }
+
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', () => {
+                scale = Math.max(scale / 1.25, 0.3);
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+                updateTransform();
+                });
+            }
+
+            if (resetBtn) {
+                resetBtn.addEventListener('click', () => {
+                scale = 1;
+                translateX = 0;
+                translateY = 0;
+                updateTransform();
+                });
+            }
+
+            if (fullscreenBtn) {
+                fullscreenBtn.addEventListener('click', () => {
+                if (container.requestFullscreen) {
+                    container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    container.webkitRequestFullscreen();
+                } else if (container.msRequestFullscreen) {
+                    container.msRequestFullscreen();
+                }
+                });
+            }
+
+            // Mouse Events
+            mermaidElement.addEventListener('mousedown', (e) => {
+                if (isTouch) return; // 如果是触摸设备，忽略鼠标事件
+
+                isDragging = true;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                mermaidElement.style.cursor = 'grabbing';
+                updateTransform();
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging && !isTouch) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            document.addEventListener('mouseleave', () => {
+                if (isDragging && !isTouch) {
+                isDragging = false;
+                mermaidElement.style.cursor = 'grab';
+                updateTransform();
+                }
+            });
+
+            // 获取两点之间的距离
+            function getTouchDistance(touch1, touch2) {
+                return Math.hypot(
+                touch2.clientX - touch1.clientX,
+                touch2.clientY - touch1.clientY
+                );
+            }
+
+            // Touch Events - 触摸事件处理
+            mermaidElement.addEventListener('touchstart', (e) => {
+                isTouch = true;
+                touchStartTime = Date.now();
+
+                if (e.touches.length === 1) {
+                // 单指拖动
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+
+                } else if (e.touches.length === 2) {
+                // 双指缩放
+                isPinching = true;
+                isDragging = false;
+
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                initialDistance = getTouchDistance(touch1, touch2);
+                initialScale = scale;
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchmove', (e) => {
+                if (e.touches.length === 1 && isDragging && !isPinching) {
+                // 单指拖动
+                const touch = e.touches[0];
+                translateX = touch.clientX - startX;
+                translateY = touch.clientY - startY;
+                updateTransform();
+
+                } else if (e.touches.length === 2 && isPinching) {
+                // 双指缩放
+                const touch1 = e.touches[0];
+                const touch2 = e.touches[1];
+                const currentDistance = getTouchDistance(touch1, touch2);
+
+                if (initialDistance > 0) {
+                    const newScale = Math.min(Math.max(
+                    initialScale * (currentDistance / initialDistance),
+                    0.3
+                    ), 4);
+                    scale = newScale;
+                    updateTransform();
+                }
+                }
+
+                e.preventDefault();
+            }, { passive: false });
+
+            mermaidElement.addEventListener('touchend', (e) => {
+                // 重置状态
+                if (e.touches.length === 0) {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                // 延迟重置isTouch，避免鼠标事件立即触发
+                setTimeout(() => {
+                    isTouch = false;
+                }, 100);
+                } else if (e.touches.length === 1 && isPinching) {
+                // 从双指变为单指，切换为拖动模式
+                isPinching = false;
+                isDragging = true;
+
+                const touch = e.touches[0];
+                startX = touch.clientX - translateX;
+                startY = touch.clientY - translateY;
+                }
+
+                updateTransform();
+            });
+
+            mermaidElement.addEventListener('touchcancel', (e) => {
+                isDragging = false;
+                isPinching = false;
+                initialDistance = 0;
+
+                setTimeout(() => {
+                isTouch = false;
+                }, 100);
+
+                updateTransform();
+            });
+
+            // Enhanced wheel zoom with better center point handling
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                const rect = container.getBoundingClientRect();
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+
+                const delta = e.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.min(Math.max(scale * delta, 0.3), 4);
+
+                // Adjust translation to zoom towards center
+                if (newScale !== scale) {
+                const scaleDiff = newScale / scale;
+                translateX = translateX * scaleDiff;
+                translateY = translateY * scaleDiff;
+                scale = newScale;
+
+                if (scale <= 1) {
+                    translateX = 0;
+                    translateY = 0;
+                }
+
+                updateTransform();
+                }
+            });
+
+            // Initialize display
+            updateTransform();
+            });
+        }
+
+        // Initialize interactions after mermaid renders
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait for mermaid to render
+            setTimeout(() => {
+                initializeMermaidControls();
+            }, 1500);
+        });
+
+        // Smooth scrolling for TOC links
+        document.querySelectorAll('.toc-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href').substring(1);
+                const targetElement = document.getElementById(targetId);
+                
+                if (targetElement) {
+                    const offsetTop = targetElement.offsetTop - 100;
+                    window.scrollTo({
+                        top: offsetTop,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Update active TOC link on scroll
+        window.addEventListener('scroll', function() {
+            const sections = document.querySelectorAll('section[id], div[id]');
+            const scrollPosition = window.scrollY + 150;
+            
+            sections.forEach(section => {
+                const sectionTop = section.offsetTop;
+                const sectionHeight = section.offsetHeight;
+                const sectionId = section.getAttribute('id');
+                
+                if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
+                    document.querySelectorAll('.toc-link').forEach(link => {
+                        link.classList.remove('active');
+                    });
+                    
+                    const activeLink = document.querySelector(`.toc-link[href="#${sectionId}"]`);
+                    if (activeLink) {
+                        activeLink.classList.add('active');
+                    }
+                }
+            });
+        });
+
+        // Highlight active section in TOC
+        const observerOptions = {
+            root: null,
+            rootMargin: '-20% 0px -70% 0px',
+            threshold: 0
+        };
+
+        const observer = new IntersectionObserver(function(entries) {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const id = entry.target.getAttribute('id');
+                    document.querySelectorAll('.toc-link').forEach(link => {
+                        link.classList.remove('active');
+                    });
+                    
+                    const activeLink = document.querySelector(`.toc-link[href="#${id}"]`);
+                    if (activeLink) {
+                        activeLink.classList.add('active');
+                    }
+                }
+            });
+        }, observerOptions);
+
+        // Observe all sections
+        document.querySelectorAll('section[id], div[id]').forEach(section => {
+            observer.observe(section);
+        });
+    </script>
+  
+
+</body></html>
